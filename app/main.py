@@ -4,14 +4,26 @@ from fastapi.templating import Jinja2Templates
 from . import data
 import os
 
+import google.generativeai as genai
+
 app = FastAPI()
 templates = Jinja2Templates(directory="app/templates")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
 
-def mock_gemini(prompt: str) -> str:
-    """Placeholder for Gemini API call"""
-    return f"[Gemini Response] {prompt}"[:200]
+def gemini_api(prompt: str) -> str:
+    api_key = os.getenv("GEMINI_API_KEY")
+    if not api_key:
+        return "[Gemini API KEYが設定されていません]"
+    try:
+        genai.configure(api_key=api_key)
+        # 利用可能な最新モデルに変更（例: "models/gemini-1.5-pro-latest"）
+        model = genai.GenerativeModel("models/gemini-2.5-flash")
+        response = model.generate_content(prompt)
+        return response.text.strip() if hasattr(response, "text") else str(response)
+    except Exception as e:
+        return f"[Gemini APIエラー: {e}]"
+
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -36,7 +48,7 @@ async def generate(request: Request, topic_id: int = Form(...), bias_id: int = F
 
     question_entry = data.get_question(topic_id)
     if question_entry:
-        generated_question = mock_gemini(
+        generated_question = gemini_api(
             f"{topic['topic']}に関する質問を{bias['bias']}の視点で1つ生成してください"
         )
         question = generated_question
@@ -49,7 +61,7 @@ async def generate(request: Request, topic_id: int = Form(...), bias_id: int = F
         f"トピック: {topic['topic']} バイアス: {bias['bias']} 知識: {knowledge_text} "
         f"質問: {question} 回答: {answer}。これらを基にニュース記事を書いてください。"
     )
-    article = mock_gemini(news_prompt)
+    article = gemini_api(news_prompt)
 
     return templates.TemplateResponse(
         "index.html",
