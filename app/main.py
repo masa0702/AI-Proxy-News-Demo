@@ -2,9 +2,11 @@ from fastapi import FastAPI, Request, Form
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from . import data
+import os
 
 app = FastAPI()
 templates = Jinja2Templates(directory="app/templates")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
 
 def mock_gemini(prompt: str) -> str:
@@ -34,16 +36,18 @@ async def generate(request: Request, topic_id: int = Form(...), bias_id: int = F
 
     question_entry = data.get_question(topic_id)
     if question_entry:
-        generated_question = mock_gemini(f"Generate a question about {topic['topic']} with bias {bias['bias']}")
+        generated_question = mock_gemini(
+            f"{topic['topic']}に関する質問を{bias['bias']}の視点で1つ生成してください"
+        )
         question = generated_question
         answer = question_entry["answer"]
     else:
-        question = "No question available"
+        question = "質問がありません"
         answer = ""
 
     news_prompt = (
-        f"Topic: {topic['topic']} Bias: {bias['bias']} Knowledge: {knowledge_text} "
-        f"Q: {question} A: {answer}. Write a news article."
+        f"トピック: {topic['topic']} バイアス: {bias['bias']} 知識: {knowledge_text} "
+        f"質問: {question} 回答: {answer}。これらを基にニュース記事を書いてください。"
     )
     article = mock_gemini(news_prompt)
 
