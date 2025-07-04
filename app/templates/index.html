@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <title>AIニュース生成デモ</title>
+</head>
+<body>
+    <h1>AI プロキシニュース デモ</h1>
+    <form action="/generate" method="post">
+        <label>会見トピック:
+            <select name="topic_id">
+                {% for t in topics %}
+                <option value="{{ t.id }}" {% if selected_topic == t.id %}selected{% endif %}>{{ t.topic }}</option>
+                {% endfor %}
+            </select>
+        </label>
+        <label>バイアス:
+            <select name="bias_id">
+                {% for b in biases %}
+                <option value="{{ b.id }}" {% if selected_bias == b.id %}selected{% endif %}>{{ b.bias }}</option>
+                {% endfor %}
+            </select>
+        </label>
+        <button type="submit">生成</button>
+    </form>
+
+    {% if article %}
+    <h2>生成された記事</h2>
+    <p>{{ article }}</p>
+    <h3>質問</h3>
+    <p>{{ question }}</p>
+    <h3>回答</h3>
+    <p>{{ answer }}</p>
+    {% endif %}
+</body>
+</html>
