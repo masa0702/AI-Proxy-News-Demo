@@ -2,35 +2,318 @@
 <html>
 <head>
     <meta charset="utf-8" />
-    <title>AIニュース生成デモ</title>
+    <title>AI Proxy News Demo</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+    <!-- marked.js (Markdown→HTML変換用) -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <style>
+        html, body {
+            margin: 0; padding: 0;
+            font-family: 'Segoe UI', 'Noto Sans JP', Arial, sans-serif;
+            background: linear-gradient(135deg, #e9f3fd 0%, #f6f9fc 80%, #e3e9f7 100%);
+            min-height: 100vh;
+            color: #23233b;
+        }
+        .container {
+            display: flex; flex-direction: row; gap: 44px;
+            justify-content: center; align-items: flex-start;
+            min-height: 100vh; padding: 56px 3vw 32px 3vw;
+            box-sizing: border-box;
+        }
+        .main-panel {
+            flex: 3;
+            background: rgba(255,255,255,0.86);
+            border-radius: 26px;
+            box-shadow: 0 10px 32px rgba(23,80,150,0.09), 0 2.5px 7px rgba(80,80,80,0.07);
+            padding: 44px 44px 34px 44px; min-width: 380px;
+            backdrop-filter: blur(6px);
+            position: relative;
+            overflow: hidden;
+        }
+        .side-panel {
+            flex: 2; min-width: 340px; max-width: 430px;
+            background: rgba(234,243,251,0.94);
+            border-radius: 20px; padding: 34px 26px 28px 34px; font-size: 1.07em;
+            box-shadow: 0 2px 14px rgba(23,80,150,0.06);
+            margin-top: 12px;
+            backdrop-filter: blur(6px);
+            position: relative;
+        }
+        h1 {
+            font-size: 2.28em; font-weight: 900; margin: 0 0 30px 0;
+            background: linear-gradient(95deg, #2387f4 40%, #12b8b8 100%);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            letter-spacing: 1.4px; text-shadow: 0 2px 8px #b9e2ff57;
+            display: flex; align-items: center; gap: 16px;
+        }
+        .ai-badge {
+            background: #f0f6ff;
+            color: #12b8b8;
+            border-radius: 11px;
+            font-size: 1.07em;
+            font-weight: 700;
+            padding: 6px 18px;
+            letter-spacing: 1.1px;
+            box-shadow: 0 1.5px 4px #cbe4fd42;
+            margin-left: 7px;
+        }
+        .form-row {
+            display: flex; flex-wrap: wrap; gap: 24px; margin-bottom: 20px;
+        }
+        label {
+            font-size: 1.09em; font-weight: 500;
+            display: flex; align-items: center; gap: 9px;
+        }
+        select, button, input {
+            font-size: 1.09em; border-radius: 10px; border: 1.4px solid #b0c4de;
+            padding: 9px 20px; background: #f4f9fe; transition: border 0.22s;
+        }
+        select:focus, input:focus { border: 1.9px solid #32b5d6; outline: none; background: #f3faff; }
+        button {
+            background: linear-gradient(90deg, #399cfc 20%, #10dbcf 100%);
+            color: #fff; border: none; padding: 14px 38px; cursor: pointer; font-weight: 900;
+            font-size: 1.08em; letter-spacing: 1.12px; box-shadow: 0 2.5px 10px rgba(44,153,255,0.10);
+            transition: background 0.18s, box-shadow 0.18s, transform 0.08s;
+        }
+        button:hover {
+            background: linear-gradient(90deg, #1976d2 20%, #12b8b8 100%);
+            box-shadow: 0 8px 28px rgba(44,153,255,0.13);
+            transform: translateY(-2px) scale(1.03);
+        }
+        .selected-group { display: flex; gap: 16px; margin-bottom: 22px;}
+        .selected-badge {
+            background: #d0eaff; color: #1976d2; border-radius: 11px; padding: 8px 21px;
+            font-weight: 700; font-size: 1.09em; box-shadow: 0 2px 7px rgba(100,170,250,0.07);
+            border: 1.2px solid #b1d3ff; display: flex; align-items: center; gap: 6px;}
+        .selected-badge i { font-size: 1.14em; }
+        .block-label { font-weight: 800; margin: 19px 0 10px 0; font-size: 1.14em; color: #147fc7; letter-spacing: 0.9px; display: flex; align-items: center; gap: 8px;}
+        .output-block, .article-block {
+            width: 100%; min-height: 44px; background: #f6fafd; border-radius: 10px;
+            padding: 13px 16px; margin-bottom: 15px; font-size: 1.12em;
+            border: 1.6px solid #e0eaf6; box-shadow: 0 1.7px 3.5px rgba(80,160,255,0.04);
+            display: flex; align-items: center; gap: 10px;
+        }
+        .output-block i { color: #2387f4; font-size: 1.14em;}
+        .article-block {
+            min-height: 145px; font-size: 1.15em; background: #eaf4ff;
+            border-left: 6px solid #12b8b8; font-weight: 480;
+            font-family: 'YuMincho', 'BIZ UDPMincho', 'serif', sans-serif;
+            padding-top: 24px;
+            padding-bottom: 16px;
+            line-height: 1.85;
+            position: relative;
+            display: block;
+            overflow-x: auto;
+        }
+        .news-meta {
+            font-size: 0.95em;
+            color: #6593ba;
+            margin-bottom: 6px;
+            opacity: 0.75;
+            display: flex; gap: 22px; align-items: center;
+        }
+        .news-meta i { margin-right: 5px; }
+        .news-title {
+            font-size: 1.38em;
+            font-weight: bold;
+            color: #21558c;
+            letter-spacing: 0.9px;
+            margin-bottom: 7px;
+            font-family: 'Yu Gothic', '游ゴシック', 'Meiryo', sans-serif;
+        }
+        .news-lead {
+            font-size: 1.07em;
+            font-weight: 500;
+            color: #1e4b78;
+            background: #e5f1fc;
+            border-radius: 8px;
+            padding: 7px 12px;
+            margin-bottom: 13px;
+            margin-left: -7px;
+            display: inline-block;
+        }
+        .news-body {
+            margin-top: 10px;
+        }
+        .news-body ul { margin: 10px 0 10px 22px; }
+        .news-body li { margin-bottom: 5px; }
+        .news-body h2, .news-body h3 {
+            color: #2672a6;
+            margin: 16px 0 10px 0;
+            font-family: 'Yu Gothic', 'Meiryo', sans-serif;
+            border-left: 4px solid #9ad1f5; padding-left: 10px;
+        }
+        .news-body blockquote {
+            border-left: 3px solid #a0d6ef;
+            margin: 14px 0; padding: 7px 14px; background: #f0f8fc; color: #28607b;
+            font-style: italic;
+        }
+        .powered-label {
+            position: absolute; right: 32px; bottom: 20px;
+            font-size: 0.98em; color: #2690c0;
+            letter-spacing: 0.8px; opacity: 0.6;
+            font-weight: 600; display: flex; align-items: center; gap: 7px;
+        }
+        .powered-label i { font-size: 1.2em; }
+        .log-title { font-weight: 900; font-size: 1.26em; margin-bottom: 15px; letter-spacing: 1.3px; color: #1373b1;}
+        .log-timeline {
+            border-left: 3.5px solid #32b5d6; margin-left: 10px; padding-left: 19px; min-height: 110px;
+        }
+        .log-event { margin-bottom: 22px; position: relative; font-size: 1.07em; opacity: 0.93;}
+        .log-event:before {
+            content: '\f21b'; font-family: 'Font Awesome 6 Free'; font-weight: 900;
+            color: #32b5d6; background: #fff; border-radius: 50%; width: 15px; height: 15px;
+            display: flex; align-items: center; justify-content: center; position: absolute; left: -29px; top: 1px;
+            font-size: 1.18em; border: 1.8px solid #d0ebfd; box-shadow: 0 1.5px 6px #d0ebfd54;
+        }
+        .progress-bar-container {
+            background:#eee; border-radius:10px; width:100%; height:18px; overflow:hidden; margin-bottom:18px;
+            box-shadow: 0 1.5px 5px #aadcf854;
+        }
+        .progress-bar {
+            background: linear-gradient(90deg,#2387f4 0%,#12b8b8 100%);
+            width:0%; height:100%; transition:width 0.5s;
+        }
+        @media (max-width: 990px) {
+            .container { flex-direction: column; padding: 22px 2vw; gap: 26px; }
+            .main-panel, .side-panel { margin-right: 0; min-width: unset; }
+            .side-panel { max-width: unset; }
+        }
+        @media (max-width: 600px) {
+            .main-panel, .side-panel { padding: 15px 4vw; }
+            h1 { font-size: 1.32em; }
+        }
+    </style>
 </head>
 <body>
-    <h1>AI プロキシニュース デモ</h1>
-    <form action="/generate" method="post">
-        <label>会見トピック:
-            <select name="topic_id">
-                {% for t in topics %}
-                <option value="{{ t.id }}" {% if selected_topic == t.id %}selected{% endif %}>{{ t.topic }}</option>
-                {% endfor %}
-            </select>
-        </label>
-        <label>バイアス:
-            <select name="bias_id">
-                {% for b in biases %}
-                <option value="{{ b.id }}" {% if selected_bias == b.id %}selected{% endif %}>{{ b.bias }}</option>
-                {% endfor %}
-            </select>
-        </label>
-        <button type="submit">生成</button>
-    </form>
+<div class="container">
+    <!-- メインパネル -->
+    <div class="main-panel">
+        <h1><i class="fa-solid fa-globe"></i> AI Proxy News Demo</h1>
+        <form id="news-form" class="form-row">
+            <label>
+                <i class="fa-solid fa-book"></i> トピック
+                <select name="topic_id" id="topic_id">
+                    {% for t in topics %}
+                    <option value="{{ t.id }}">{{ t.topic }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            <label>
+                <i class="fa-solid fa-bullseye"></i> バイアス
+                <select name="bias_id" id="bias_id">
+                    {% for b in biases %}
+                    <option value="{{ b.id }}">{{ b.bias }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            <button type="submit" id="generate-btn"><i class="fa-solid fa-rocket"></i> 作成</button>
+        </form>
+        <div class="selected-group" id="selected-group" style="display:none;">
+            <div class="selected-badge" id="selected-topic"></div>
+            <div class="selected-badge" id="selected-bias"></div>
+        </div>
+        <div class="block-label"><i class="fa-solid fa-question-circle"></i> AIが生成した質問</div>
+        <div class="output-block" id="question-block"><i class="fa-solid fa-comment-dots"></i>（まだ生成されていません）</div>
+        <div class="block-label"><i class="fa-solid fa-reply"></i> 質問への回答</div>
+        <div class="output-block" id="answer-block"><i class="fa-solid fa-lightbulb"></i>（まだ生成されていません）</div>
+        <div class="block-label"><i class="fa-solid fa-newspaper"></i> AI生成ニュース記事</div>
+        <div class="article-block" id="article-block"><i class="fa-solid fa-pen-nib"></i> ...</div>
+        <div class="powered-label"><i class="fa-brands fa-google"></i> Powered by Gemini / Google Generative AI</div>
+    </div>
+    <!-- サイドパネル（進捗＋ログ） -->
+    <div class="side-panel">
+        <div class="progress-bar-container">
+            <div class="progress-bar" id="progress-bar"></div>
+        </div>
+        <div class="log-title"><i class="fa-solid fa-list"></i> 進行ログ</div>
+        <div class="log-timeline" id="log-timeline"></div>
+    </div>
+</div>
+<script>
+// マークダウン＋タイトル・リード分割対応
+function renderNewsArticle(rawText) {
+    let lines = rawText.trim().split(/\n+/);
+    if (lines.length < 2) {
+        return `<div class="news-body">${marked.parse(rawText)}</div>`;
+    }
+    let title = lines[0];
+    let lead = lines[1];
+    let bodyMarkdown = lines.slice(2).join('\n');
+    let bodyHtml = marked.parse(bodyMarkdown);
+    let today = new Date();
+    let pubdate = today.getFullYear() + "年" + (today.getMonth()+1) + "月" + today.getDate() + "日";
+    return `
+        <div class="news-meta">
+            <span class="news-date"><i class="fa-regular fa-calendar"></i> ${pubdate}</span>
+            <span class="news-author"><i class="fa-solid fa-user-pen"></i> AI編集部</span>
+        </div>
+        <div class="news-title">${title}</div>
+        <div class="news-lead">${lead}</div>
+        <div class="news-body">${bodyHtml}</div>
+    `;
+}
+let eventSource = null;
+const timeline = document.getElementById('log-timeline');
+const progressBar = document.getElementById('progress-bar');
+const form = document.getElementById('news-form');
+const btn = document.getElementById('generate-btn');
+const questionBlock = document.getElementById('question-block');
+const answerBlock = document.getElementById('answer-block');
+const articleBlock = document.getElementById('article-block');
+const selectedGroup = document.getElementById('selected-group');
+const selectedTopic = document.getElementById('selected-topic');
+const selectedBias = document.getElementById('selected-bias');
+const topicSelect = document.getElementById('topic_id');
+const biasSelect = document.getElementById('bias_id');
 
-    {% if article %}
-    <h2>生成された記事</h2>
-    <p>{{ article }}</p>
-    <h3>質問</h3>
-    <p>{{ question }}</p>
-    <h3>回答</h3>
-    <p>{{ answer }}</p>
-    {% endif %}
+form.onsubmit = function(e) {
+    e.preventDefault();
+    timeline.innerHTML = '';
+    questionBlock.innerHTML = '<i class="fa-solid fa-comment-dots"></i> 生成中…';
+    answerBlock.innerHTML = '<i class="fa-solid fa-lightbulb"></i> 生成中…';
+    articleBlock.innerHTML = '<i class="fa-solid fa-pen-nib"></i> 生成中…';
+    progressBar.style.width = '0%';
+    btn.disabled = true;
+
+    // 選択表示
+    selectedGroup.style.display = 'flex';
+    selectedTopic.innerHTML = '<i class="fa-solid fa-book"></i> ' + topicSelect.options[topicSelect.selectedIndex].text;
+    selectedBias.innerHTML = '<i class="fa-solid fa-bullseye"></i> ' + biasSelect.options[biasSelect.selectedIndex].text;
+
+    // POSTで生成開始
+    fetch('/start_generate', {
+        method:'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+            topic_id: topicSelect.value,
+            bias_id: biasSelect.value
+        })
+    }).then(_=>{
+        if(eventSource) eventSource.close();
+        eventSource = new EventSource('/progress_stream');
+        eventSource.onmessage = function(event) {
+            let data = JSON.parse(event.data);
+            // ログ
+            let div = document.createElement('div');
+            div.className = 'log-event';
+            div.innerHTML = data.message;
+            timeline.appendChild(div);
+            timeline.scrollTop = timeline.scrollHeight;
+            // 進捗
+            progressBar.style.width = data.progress + '%';
+            // 質問・回答・記事
+            if(data.question !== undefined) questionBlock.innerHTML = '<i class="fa-solid fa-comment-dots"></i> ' + data.question;
+            if(data.answer !== undefined) answerBlock.innerHTML = '<i class="fa-solid fa-lightbulb"></i> ' + data.answer;
+            if(data.article !== undefined) articleBlock.innerHTML = '<i class="fa-solid fa-pen-nib"></i> ' + renderNewsArticle(data.article);
+            // 完了時
+            if(data.progress >= 100){
+                eventSource.close();
+                btn.disabled = false;
+            }
+        };
+    });
+};
+</script>
 </body>
 </html>
